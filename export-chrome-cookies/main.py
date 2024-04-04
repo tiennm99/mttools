@@ -15,6 +15,18 @@ local_state_path = os.path.join(os.environ["USERPROFILE"], "AppData", "Local", "
 cookies_path = os.path.join(os.environ["USERPROFILE"], "AppData", "Local", "Google", "Chrome", "User Data", "Default",
                             "Network", "Cookies")
 
+def convert_to_unix_time(expires_utc):
+    if expires_utc == 0:
+        return 0
+    # Define the start date as January 1, 1601
+    start_date = datetime(1601, 1, 1)
+    # Calculate the timedelta from the start date to the expires_utc date
+    expires_date = start_date + timedelta(microseconds=expires_utc)
+    # Define the Unix epoch start date as January 1, 1970
+    epoch_start_date = datetime(1970, 1, 1)
+    # Calculate the timedelta from the Unix epoch start date to the expires_utc date
+    unix_time = (expires_date - epoch_start_date).total_seconds()
+    return unix_time
 
 def get_chrome_datetime(chromedate):
     """Return a `datetime.datetime` object from a chrome format datetime
@@ -78,44 +90,40 @@ def main():
     cursor = db.cursor()
     # get the cookies from `cookies` table
     cursor.execute("""
-    SELECT host_key, name, value, creation_utc, last_access_utc, expires_utc, encrypted_value 
-    FROM cookies""")
-    # you can also search by domain, e.g thepythoncode.com
-    # cursor.execute("""
-    # SELECT host_key, name, value, creation_utc, last_access_utc, expires_utc, encrypted_value
-    # FROM cookies
-    # WHERE host_key like '%thepythoncode.com%'""")
-    # get the AES key
-    key = get_encryption_key()
-    # dictionary to store cookies
-    cookies_dict = {}
-    for host_key, name, value, creation_utc, last_access_utc, expires_utc, encrypted_value in cursor.fetchall():
+        SELECT host_key, name, value, encrypted_value, path, expires_utc, is_secure, is_httponly, has_expires, is_persistent, samesite
+        FROM cookies""")
+
+    encryption_key = get_encryption_key()
+
+    cookies_list = []
+    for i, (host_key, name, value, encrypted_value, path, expires_utc, is_secure, is_httponly, has_expires,
+            is_persistent, samesite) in enumerate(cursor.fetchall()):
         if not value:
-            decrypted_value = decrypt_data(encrypted_value, key)
+            decrypted_value = decrypt_data(encrypted_value, encryption_key)
         else:
             # already decrypted
             decrypted_value = value
-        if host_key not in cookies_dict:
-            cookies_dict[host_key] = []
-        cookies_dict[host_key].append({
-            "Cookie name": name,
-            "Cookie value (decrypted)": decrypted_value,
-            "Creation datetime (UTC)": str(get_chrome_datetime(creation_utc)),
-            "Last access datetime (UTC)": str(get_chrome_datetime(last_access_utc)),
-            "Expires datetime (UTC)": str(get_chrome_datetime(expires_utc))
+
+        cookies_list.append({
+            "domain": host_key,
+            "expirationDate": convert_to_unix_time(expires_utc),
+            "hostOnly": False,  # This information is not available in the SQLite database
+            "httpOnly": bool(is_httponly),
+            "name": name,
+            "path": path,
+            "sameSite": "unspecified",  # This information is not available in the SQLite database
+            "secure": bool(is_secure),
+            "session": not bool(is_persistent),
+            "storeId": "0",  # This information is not available in the SQLite database
+            "value": decrypted_value,
+            "id": i + 1
         })
-        # update the cookies table with the decrypted value
-        # and make session cookie persistent
-        cursor.execute("""
-        UPDATE cookies SET value = ?, has_expires = 1, expires_utc = 99999999999999999, is_persistent = 1, is_secure = 0
-        WHERE host_key = ?
-        AND name = ?""", (decrypted_value, host_key, name))
     # commit changes
     db.commit()
     # close connection
     db.close()
     with open('cookies.json', 'w') as f:
-        json.dump(cookies_dict, f, indent=4)
+        json.dump(cookies_list, f, indent=4)
 
 
 if __name__ == "__main__":
