@@ -9,13 +9,18 @@ import win32crypt  # pip install pypiwin32
 from Crypto.Cipher import AES  # pip install pycryptodome
 
 # This is Windows version
-# You may need to edit these values to match your OS
+# You may want to edit these values to match your OS
 local_state_path = os.path.join(os.environ["USERPROFILE"], "AppData", "Local", "Google", "Chrome", "User Data",
                                 "Local State")
 cookies_path = os.path.join(os.environ["USERPROFILE"], "AppData", "Local", "Google", "Chrome", "User Data", "Default",
                             "Network", "Cookies")
 
+
 def convert_to_unix_time(expires_utc):
+    """
+    :param expires_utc: microseconds diff since January, 1601
+    :return: epoch time in seconds
+    """
     if expires_utc == 0:
         return 0
     # Define the start date as January 1, 1601
@@ -27,18 +32,6 @@ def convert_to_unix_time(expires_utc):
     # Calculate the timedelta from the Unix epoch start date to the expires_utc date
     unix_time = (expires_date - epoch_start_date).total_seconds()
     return unix_time
-
-def get_chrome_datetime(chromedate):
-    """Return a `datetime.datetime` object from a chrome format datetime
-    Since `chromedate` is formatted as the number of microseconds since January, 1601"""
-    if chromedate != 86400000000 and chromedate:
-        try:
-            return datetime(1601, 1, 1) + timedelta(microseconds=chromedate)
-        except Exception as e:
-            print(f"Error: {e}, chromedate: {chromedate}")
-            return chromedate
-    else:
-        return ""
 
 
 def get_encryption_key():
@@ -90,8 +83,8 @@ def main():
     cursor = db.cursor()
     # get the cookies from `cookies` table
     cursor.execute("""
-        SELECT host_key, name, value, encrypted_value, path, expires_utc, is_secure, is_httponly, has_expires, is_persistent, samesite
-        FROM cookies""")
+        SELECT host_key, name, value, encrypted_value, path, expires_utc, is_secure, is_httponly, has_expires, 
+        is_persistent, samesite FROM cookies""")
 
     encryption_key = get_encryption_key()
 
