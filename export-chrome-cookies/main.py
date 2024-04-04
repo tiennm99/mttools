@@ -34,6 +34,17 @@ def convert_to_unix_time(expires_utc):
     return unix_time
 
 
+def convert_samesite(samesite):
+    samesite_mapping = {
+        -1: "unspecified",
+        0: "no_restriction",
+        1: "lax",
+        2: "strict",
+        3: "none",
+    }
+    return samesite_mapping.get(samesite, "unspecified")
+
+
 def get_encryption_key():
     working_local_state = "Local State"
     if not os.path.isfile(working_local_state):
@@ -104,17 +115,19 @@ def main():
             "httpOnly": bool(is_httponly),
             "name": name,
             "path": path,
-            "sameSite": "unspecified",  # This information is not available in the SQLite database
+            "sameSite": convert_samesite(samesite),
             "secure": bool(is_secure),
             "session": not bool(is_persistent),
             "storeId": "0",  # This information is not available in the SQLite database
             "value": decrypted_value,
             "id": i + 1
         })
+
     # commit changes
     db.commit()
     # close connection
     db.close()
+
     with open('cookies.json', 'w') as f:
         json.dump(cookies_list, f, indent=4)
 
