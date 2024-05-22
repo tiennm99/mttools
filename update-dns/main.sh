@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # Configuration
-API_EMAIL="your@email.com"
 API_KEY="your_cloudflare_api_key"
 ZONE_ID="your_zone_id"
 RECORDS=("subdomain1.example.com" "subdomain2.example.com" "subdomain3.example.com")
@@ -16,8 +15,7 @@ update_record() {
     local record_id=$(curl --request GET \
         --url "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records?type=A&name=$record" \
         --header "Content-Type: application/json" \
-        --header "X-Auth-Email: $API_EMAIL" \
-        --header "X-Auth-Key: $API_KEY" \
+        --header "Authorization: Bearer $API_KEY" \
         | jq -r '.result[0].id')
 
     if [ -n "$record_id" ]; then
@@ -25,8 +23,7 @@ update_record() {
         curl --request PUT \
             --url https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records/$record_id \
             --header "Content-Type: application/json" \
-            --header "X-Auth-Email: $API_EMAIL" \
-            --header "X-Auth-Key: $API_KEY" \
+            --header "Authorization: Bearer $API_KEY" \
             --data "{\"content\":\"$CURRENT_IP\",\"name\":\"$record\",\"proxied\":false,\"type\":\"A\",\"ttl\":3600}"
         echo "Updated $record to $CURRENT_IP\n"
     else
@@ -34,8 +31,7 @@ update_record() {
         curl --request POST \
             --url https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records \
             --header "Content-Type: application/json" \
-            --header "X-Auth-Email: $API_EMAIL" \
-            --header "X-Auth-Key: $API_KEY" \
+            --header "Authorization: Bearer $API_KEY" \
             --data "{\"content\":\"$CURRENT_IP\",\"name\":\"$record\",\"proxied\":false,\"type\":\"A\",\"ttl\":3600}"
         echo "Created A record for $record with IP $CURRENT_IP\n"
     fi
