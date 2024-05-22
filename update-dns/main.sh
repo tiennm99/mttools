@@ -18,14 +18,22 @@ update_record() {
         -H "Content-Type: application/json" | jq -r '.result[0].id')
 
     if [ -n "$record_id" ]; then
-        curl -sX PUT "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records/$record_id" \
-            -H "X-Auth-Email: $CF_EMAIL" \
-            -H "Authorization: Bearer $CF_API_KEY" \
-            -H "Content-Type: application/json" \
-            --data "{\"type\":\"A\",\"name\":\"$record\",\"content\":\"$CURRENT_IP\"}"
+        curl --request PUT \
+            --url https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records/$record_id \
+            --header 'Content-Type: application/json' \
+            --header "X-Auth-Email: $CF_EMAIL" \
+            --header "Authorization: Bearer $CF_API_KEY" \
+            --data "{\"content\":\"$CURRENT_IP\",\"name\":\"$record\",\"proxied\":false,\"type\":\"A\",\"ttl\":3600}"
         echo "Updated $record to $CURRENT_IP"
     else
-        echo "Error: $record not found"
+        echo "No A record found for $record, creating a new one"
+        curl --request POST \
+            --url https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records \
+            --header 'Content-Type: application/json' \
+            --header "X-Auth-Email: $CF_EMAIL" \
+            --header "Authorization: Bearer $CF_API_KEY" \
+            --data "{\"content\":\"$CURRENT_IP\",\"name\":\"$record\",\"proxied\":false,\"type\":\"A\",\"ttl\":3600}"
+        echo "Created A record for $record with IP $CURRENT_IP"
     fi
 }
 
