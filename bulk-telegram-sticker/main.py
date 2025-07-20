@@ -110,7 +110,7 @@ async def create_sticker_pack(config):
             await asyncio.sleep(1)
             await client(SendMessageRequest(
                 peer=sticker_bot,
-                message="/skip"
+                message=sticker['emoji']
             ))
             await asyncio.sleep(1)
         
