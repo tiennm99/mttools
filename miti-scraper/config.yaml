@@ -1,0 +1,9 @@
+root_url: "https://iamminhnguyet.com/"
+
+whitelist:
+  - "^https?://([^/]*\\.)?iamminhnguyet\\.com(/[^?]*)?$"
+
+data_file: "processed_urls.txt"
+
+# Delay between requests in seconds (helps avoid rate limiting)
+delay_seconds: 1

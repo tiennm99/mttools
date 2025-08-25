@@ -2,20 +2,25 @@ package main
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gocolly/colly/v2"
+	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	RootURL   string   `json:"root_url"`
-	Whitelist []string `json:"whitelist"`
-	DataFile  string   `json:"data_file"`
+	RootURL   string   `yaml:"root_url"`
+	Whitelist []string `yaml:"whitelist"`
+	DataFile  string   `yaml:"data_file"`
+	Delay     int      `yaml:"delay_seconds"`
 }
 
 type WebScraper struct {
@@ -23,13 +28,15 @@ type WebScraper struct {
 	processedURL map[string]bool
 	mutex        sync.RWMutex
 	dataFile     string
+	delay        time.Duration
 }
 
-func NewWebScraper(whitelist []string, dataFile string) *WebScraper {
+func NewWebScraper(whitelist []string, dataFile string, delay time.Duration) *WebScraper {
 	return &WebScraper{
 		whitelist:    whitelist,
 		processedURL: make(map[string]bool),
 		dataFile:     dataFile,
+		delay:        delay,
 	}
 }
 
@@ -74,7 +81,12 @@ func (ws *WebScraper) saveProcessedURLs() error {
 
 func (ws *WebScraper) isWhitelisted(url string) bool {
 	for _, pattern := range ws.whitelist {
-		if strings.Contains(url, pattern) {
+		matched, err := regexp.MatchString(pattern, url)
+		if err != nil {
+			log.Printf("Invalid regex pattern '%s': %v", pattern, err)
+			continue
+		}
+		if matched {
 			return true
 		}
 	}
@@ -93,6 +105,40 @@ func (ws *WebScraper) markAsProcessed(url string) {
 	ws.processedURL[url] = true
 }
 
+func (ws *WebScraper) normalizeURLForFilename(urlStr string) string {
+	parsedURL, err := url.Parse(urlStr)
+	if err != nil {
+		return "invalid-url"
+	}
+
+	filename := parsedURL.Host + parsedURL.Path
+	if parsedURL.RawQuery != "" {
+		filename += "_" + parsedURL.RawQuery
+	}
+
+	reg := regexp.MustCompile(`[<>:"/\\|?*]`)
+	filename = reg.ReplaceAllString(filename, "_")
+	filename = strings.ReplaceAll(filename, ".", "_")
+
+	if filename == "" || filename[len(filename)-1] == '_' {
+		filename += "index"
+	}
+
+	return filename
+}
+
+func (ws *WebScraper) saveContent(urlStr, content string) error {
+	dataDir := "data"
+	if err := os.MkdirAll(dataDir, 0755); err != nil {
+		return err
+	}
+
+	filename := ws.normalizeURLForFilename(urlStr) + ".txt"
+	filePath := filepath.Join(dataDir, filename)
+
+	return os.WriteFile(filePath, []byte(content), 0644)
+}
+
 func (ws *WebScraper) processURL(url string) {
 	fmt.Printf("Processing URL: %s\n", url)
 	ws.markAsProcessed(url)
@@ -106,6 +152,18 @@ func (ws *WebScraper) Start(rootURL string) error {
 	c := colly.NewCollector(
 		colly.AllowedDomains(),
 	)
+
+	c.OnResponse(func(r *colly.Response) {
+		urlStr := r.Request.URL.String()
+		if ws.isWhitelisted(urlStr) {
+			content := string(r.Body)
+			if err := ws.saveContent(urlStr, content); err != nil {
+				log.Printf("Failed to save content for %s: %v", urlStr, err)
+			} else {
+				fmt.Printf("Saved content: %s\n", ws.normalizeURLForFilename(urlStr)+".txt")
+			}
+		}
+	})
 
 	c.OnHTML("a[href]", func(e *colly.HTMLElement) {
 		link := e.Attr("href")
@@ -123,10 +181,28 @@ func (ws *WebScraper) Start(rootURL string) error {
 
 	c.OnRequest(func(r *colly.Request) {
 		fmt.Printf("Visiting: %s\n", r.URL.String())
+		if ws.delay > 0 {
+			time.Sleep(ws.delay)
+		}
 	})
 
 	c.OnError(func(r *colly.Response, err error) {
-		log.Printf("Error visiting %s: %v", r.Request.URL, err)
+		if r != nil {
+			switch r.StatusCode {
+			case 301, 302, 303, 307, 308:
+				log.Printf("REDIRECT: %s (Status: %d) -> Location: %s", r.Request.URL, r.StatusCode, r.Headers.Get("Location"))
+			case 403:
+				log.Printf("BLOCKED: Access forbidden to %s (Status: 403)", r.Request.URL)
+			case 429:
+				log.Printf("RATE_LIMITED: Too many requests to %s (Status: 429)", r.Request.URL)
+			case 404:
+				log.Printf("NOT_FOUND: %s (Status: 404)", r.Request.URL)
+			default:
+				log.Printf("ERROR: %s (Status: %d) - %v", r.Request.URL, r.StatusCode, err)
+			}
+		} else {
+			log.Printf("NETWORK_ERROR: Failed to connect to %s - %v", r.Request.URL, err)
+		}
 	})
 
 	if ws.isWhitelisted(rootURL) && !ws.isProcessed(rootURL) {
@@ -147,25 +223,24 @@ func (ws *WebScraper) Start(rootURL string) error {
 }
 
 func loadConfig(filename string) (*Config, error) {
-	file, err := os.Open(filename)
+	data, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
 
 	var config Config
-	decoder := json.NewDecoder(file)
-	err = decoder.Decode(&config)
+	err = yaml.Unmarshal(data, &config)
 	return &config, err
 }
 
 func main() {
-	config, err := loadConfig("config.json")
+	config, err := loadConfig("config.yaml")
 	if err != nil {
 		log.Fatal("Failed to load config:", err)
 	}
 
-	scraper := NewWebScraper(config.Whitelist, config.DataFile)
+	delay := time.Duration(config.Delay) * time.Second
+	scraper := NewWebScraper(config.Whitelist, config.DataFile, delay)
 
 	if err := scraper.Start(config.RootURL); err != nil {
 		log.Fatal(err)
