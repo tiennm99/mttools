@@ -1,9 +1,0 @@
-{
-  "root_url": "https://example.com",
-  "whitelist": [
-    "example.com",
-    "subdomain.example.com",
-    "blog.example.com"
-  ],
-  "data_file": "processed_urls.txt"
-}
