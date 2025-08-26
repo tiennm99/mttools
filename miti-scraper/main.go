@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gocolly/colly/v2"
+	"golang.org/x/net/html"
 	"gopkg.in/yaml.v3"
 )
 
@@ -127,6 +128,43 @@ func (ws *WebScraper) normalizeURLForFilename(urlStr string) string {
 	return filename
 }
 
+func (ws *WebScraper) extractTextFromHTML(htmlContent string) string {
+	doc, err := html.Parse(strings.NewReader(htmlContent))
+	if err != nil {
+		log.Printf("Failed to parse HTML: %v", err)
+		return htmlContent
+	}
+
+	var textContent strings.Builder
+	ws.extractText(doc, &textContent)
+	
+	text := textContent.String()
+	text = regexp.MustCompile(`\s+`).ReplaceAllString(text, " ")
+	text = strings.TrimSpace(text)
+	
+	return text
+}
+
+func (ws *WebScraper) extractText(n *html.Node, textContent *strings.Builder) {
+	if n.Type == html.TextNode {
+		textContent.WriteString(n.Data)
+		textContent.WriteString(" ")
+	}
+	
+	if n.Type == html.ElementNode {
+		switch n.Data {
+		case "script", "style", "noscript", "head":
+			return
+		case "br", "p", "div", "h1", "h2", "h3", "h4", "h5", "h6":
+			textContent.WriteString(" ")
+		}
+	}
+	
+	for child := n.FirstChild; child != nil; child = child.NextSibling {
+		ws.extractText(child, textContent)
+	}
+}
+
 func (ws *WebScraper) saveContent(urlStr, content string) error {
 	dataDir := "data"
 	if err := os.MkdirAll(dataDir, 0755); err != nil {
@@ -136,7 +174,8 @@ func (ws *WebScraper) saveContent(urlStr, content string) error {
 	filename := ws.normalizeURLForFilename(urlStr) + ".txt"
 	filePath := filepath.Join(dataDir, filename)
 
-	return os.WriteFile(filePath, []byte(content), 0644)
+	textContent := ws.extractTextFromHTML(content)
+	return os.WriteFile(filePath, []byte(textContent), 0644)
 }
 
 func (ws *WebScraper) processURL(url string) {
