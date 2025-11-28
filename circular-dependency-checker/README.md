@@ -1,2 +1,6 @@
 # circular-dependency-checker
-Detect cyclic dependencies in Godot, which cause "bad address index". Inspired by https://gist.github.com/tavurth/0d4c49a0a800cbc27f80c3a68f0c8ee7
+Detects cyclic dependencies in Godot Engine projects, which cause "bad address index" errors. This tool analyzes `.gd` script files to identify circular dependencies between classes.
+
+*In 2025, I rewrote this project using Go. The Python version of this project can be found at [feature/python](https://github.com/tiennm99/circular-dependency-checker/tree/feature/python) branch.*
+
+**Note: This Go version hasn't been tested yet. I don't work with GD projects anymore.**
