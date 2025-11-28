@@ -2,7 +2,7 @@
 
 Crawl all prime numbers available on http://compoasso.free.fr/primelistweb/page/prime/liste_online_en.php
 
-*In 2025, I rewrite this project using Go. The Python version of this project can be found at [feature/python](https://github.com/tiennm99/crawl-prime/tree/feature/python) branch.*
+*In 2025, I rewrote this project using Go. The Python version of this project can be found at [feature/python](https://github.com/tiennm99/crawl-prime/tree/feature/python) branch.*
 
 ## Requirements
 
