@@ -8,6 +8,7 @@ import (
 	"strings"
 )
 
+// From: https://docs.godotengine.org/en/stable/classes/index.html
 var ignoredTypes = []string{
 	"@GDScript",
 	"@GlobalScope",
