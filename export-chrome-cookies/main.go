@@ -1,51 +1,292 @@
 package main
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
+	"unsafe"
 
-	_ "github.com/mattn/go-sqlite3"
+	"golang.org/x/sys/windows"
+	_ "modernc.org/sqlite"
 )
 
-// Cookie represents a Chrome cookie in the same format as the Python version
 type Cookie struct {
-	Domain         string `json:"domain"`
-	ExpirationDate int64  `json:"expirationDate"`
-	HostOnly       bool   `json:"hostOnly"`
-	HTTPOnly       bool   `json:"httpOnly"`
-	Name           string `json:"name"`
-	Path           string `json:"path"`
-	SameSite       string `json:"sameSite"`
-	Secure         bool   `json:"secure"`
-	Session        bool   `json:"session"`
-	StoreID        string `json:"storeId"`
-	Value          string `json:"value"`
-	ID             int    `json:"id"`
+	Domain         string  `json:"domain"`
+	ExpirationDate float64 `json:"expirationDate"`
+	HostOnly       bool    `json:"hostOnly"`
+	HTTPOnly       bool    `json:"httpOnly"`
+	Name           string  `json:"name"`
+	Path           string  `json:"path"`
+	SameSite       string  `json:"sameSite"`
+	Secure         bool    `json:"secure"`
+	Session        bool    `json:"session"`
+	StoreID        string  `json:"storeId"`
+	Value          string  `json:"value"`
+	ID             int     `json:"id"`
 }
 
-// ConvertToUnixTime converts Windows FILETIME (microseconds since 1601) to Unix epoch time (seconds since 1970)
-func ConvertToUnixTime(expiresUTC int64) int64 {
+type LocalState struct {
+	OSCrypt struct {
+		EncryptedKey string `json:"encrypted_key"`
+	} `json:"os_crypt"`
+}
+
+func main() {
+	userProfile := os.Getenv("USERPROFILE")
+	localStatePath := filepath.Join(userProfile, "AppData", "Local", "Google", "Chrome", "User Data", "Local State")
+	cookiesPath := filepath.Join(userProfile, "AppData", "Local", "Google", "Chrome", "User Data", "Default", "Network", "Cookies")
+
+	// Get encryption key
+	key, err := getEncryptionKey(localStatePath)
+	if err != nil {
+		fmt.Printf("Error getting encryption key: %v\n", err)
+		return
+	}
+	fmt.Printf("Encryption key length: %d bytes\n", len(key))
+	fmt.Printf("Key first bytes: %v\n", key[:min(16, len(key))])
+
+	// Extract cookies
+	cookies, err := extractCookies(cookiesPath, key)
+	if err != nil {
+		fmt.Printf("Error extracting cookies: %v\n", err)
+		return
+	}
+
+	// Save to JSON
+	jsonData, err := json.MarshalIndent(cookies, "", "    ")
+	if err != nil {
+		fmt.Printf("Error marshaling JSON: %v\n", err)
+		return
+	}
+
+	err = os.WriteFile("cookies.json", jsonData, 0644)
+	if err != nil {
+		fmt.Printf("Error writing JSON file: %v\n", err)
+		return
+	}
+
+	fmt.Printf("Successfully extracted %d cookies to cookies.json\n", len(cookies))
+}
+
+func getEncryptionKey(localStatePath string) ([]byte, error) {
+	// Always copy a fresh Local State file
+	workingFile := "Local State"
+	// Remove old copy if exists
+	os.Remove(workingFile)
+
+	if err := copyFile(localStatePath, workingFile); err != nil {
+		return nil, fmt.Errorf("failed to copy Local State: %v", err)
+	}
+
+	// Read and parse Local State
+	data, err := os.ReadFile(workingFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read Local State: %v", err)
+	}
+
+	var localState LocalState
+	if err := json.Unmarshal(data, &localState); err != nil {
+		return nil, fmt.Errorf("failed to parse Local State: %v", err)
+	}
+
+	// Decode base64 key
+	encryptedKey, err := base64.StdEncoding.DecodeString(localState.OSCrypt.EncryptedKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode key: %v", err)
+	}
+
+	fmt.Printf("Encrypted key length: %d bytes\n", len(encryptedKey))
+	fmt.Printf("Encrypted key prefix: %s\n", string(encryptedKey[:5]))
+
+	// Remove "DPAPI" prefix (first 5 bytes)
+	if len(encryptedKey) < 5 || string(encryptedKey[:5]) != "DPAPI" {
+		return nil, fmt.Errorf("encrypted key doesn't have DPAPI prefix")
+	}
+	encryptedKey = encryptedKey[5:]
+
+	// Decrypt using DPAPI
+	key, err := dpAPIDecrypt(encryptedKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt key: %v", err)
+	}
+
+	return key, nil
+}
+
+func dpAPIDecrypt(data []byte) ([]byte, error) {
+	dataBlob := windows.DataBlob{
+		Size: uint32(len(data)),
+		Data: &data[0],
+	}
+	var outBlob windows.DataBlob
+
+	err := windows.CryptUnprotectData(&dataBlob, nil, nil, 0, nil, 0, &outBlob)
+	if err != nil {
+		return nil, fmt.Errorf("DPAPI decrypt failed: %v", err)
+	}
+
+	decrypted := make([]byte, outBlob.Size)
+	copy(decrypted, unsafe.Slice(outBlob.Data, outBlob.Size))
+	windows.LocalFree(windows.Handle(unsafe.Pointer(outBlob.Data)))
+
+	return decrypted, nil
+}
+
+func extractCookies(cookiesPath string, key []byte) ([]Cookie, error) {
+	// Always copy a fresh cookies database
+	workingDB := "Cookies"
+	// Remove old copy if exists
+	os.Remove(workingDB)
+
+	if err := copyFile(cookiesPath, workingDB); err != nil {
+		return nil, fmt.Errorf("failed to copy Cookies database: %v", err)
+	}
+
+	// Open database
+	db, err := sql.Open("sqlite", workingDB)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open database: %v", err)
+	}
+	defer db.Close()
+
+	// Query cookies
+	query := `SELECT host_key, name, value, encrypted_value, path, expires_utc, is_secure,
+	                 is_httponly, has_expires, is_persistent, samesite FROM cookies`
+	rows, err := db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query cookies: %v", err)
+	}
+	defer rows.Close()
+
+	var cookies []Cookie
+	id := 1
+
+	for rows.Next() {
+		var hostKey, name, value, path string
+		var encryptedValue []byte
+		var expiresUTC, isSecure, isHTTPOnly, hasExpires, isPersistent, sameSite int64
+
+		err := rows.Scan(&hostKey, &name, &value, &encryptedValue, &path, &expiresUTC,
+			&isSecure, &isHTTPOnly, &hasExpires, &isPersistent, &sameSite)
+		if err != nil {
+			continue
+		}
+
+		// Debug output for first few cookies
+		if id <= 3 {
+			fmt.Printf("Cookie #%d: %s\n", id, name)
+			fmt.Printf("  Value field: '%s' (len=%d)\n", value, len(value))
+			fmt.Printf("  Encrypted field: len=%d\n", len(encryptedValue))
+			if len(encryptedValue) > 0 {
+				fmt.Printf("  First bytes: %v\n", encryptedValue[:min(10, len(encryptedValue))])
+			}
+		}
+
+		// Decrypt value if needed
+		decryptedValue := value
+		if value == "" && len(encryptedValue) > 0 {
+			decryptedValue = decryptData(encryptedValue, key)
+			if id <= 3 {
+				fmt.Printf("  Decrypted: '%s'\n", decryptedValue)
+			}
+		}
+
+		cookie := Cookie{
+			Domain:         hostKey,
+			ExpirationDate: convertToUnixTime(expiresUTC),
+			HostOnly:       false,
+			HTTPOnly:       isHTTPOnly == 1,
+			Name:           name,
+			Path:           path,
+			SameSite:       convertSameSite(int(sameSite)),
+			Secure:         isSecure == 1,
+			Session:        isPersistent == 0,
+			StoreID:        "0",
+			Value:          decryptedValue,
+			ID:             id,
+		}
+
+		cookies = append(cookies, cookie)
+		id++
+	}
+
+	return cookies, nil
+}
+
+func decryptData(data []byte, key []byte) string {
+	// Check if data starts with "v10", "v11", or "v20" prefix (Chrome's encryption marker)
+	if len(data) > 3 && data[0] == 'v' {
+		version := string(data[0:3])
+
+		// v10, v11, v20 all use AES-GCM with 12-byte nonce
+		if version == "v10" || version == "v11" || version == "v20" {
+			if len(data) < 15 {
+				return ""
+			}
+
+			// Nonce is bytes 3-15 (12 bytes)
+			nonce := data[3:15]
+			encryptedData := data[15:]
+
+			// Create AES-GCM cipher
+			block, err := aes.NewCipher(key)
+			if err != nil {
+				fmt.Printf("  AES cipher error: %v\n", err)
+				return ""
+			}
+
+			aesgcm, err := cipher.NewGCM(block)
+			if err != nil {
+				fmt.Printf("  GCM error: %v\n", err)
+				return ""
+			}
+
+			// Decrypt
+			decrypted, err := aesgcm.Open(nil, nonce, encryptedData, nil)
+			if err != nil {
+				fmt.Printf("  Decrypt error: %v\n", err)
+				return ""
+			}
+
+			return string(decrypted)
+		}
+	}
+
+	// Try DPAPI fallback for older encryption
+	if len(data) > 0 {
+		if decrypted, err := dpAPIDecrypt(data); err == nil {
+			return string(decrypted)
+		}
+	}
+
+	return ""
+}
+
+func convertToUnixTime(expiresUTC int64) float64 {
 	if expiresUTC == 0 {
 		return 0
 	}
 
-	// Windows FILETIME: 100-nanosecond intervals since January 1, 1601
-	// Convert to microseconds and then to Unix time (seconds since 1970)
-	microseconds := expiresUTC / 10
+	// Chrome's timestamp is microseconds since January 1, 1601
+	// Convert to Unix timestamp (seconds since January 1, 1970)
+	chromeEpoch := time.Date(1601, 1, 1, 0, 0, 0, 0, time.UTC)
+	unixEpoch := time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC)
 
-	// January 1, 1601 to January 1, 1970 is 11644473600 seconds
-	return (microseconds / 1000000) - 11644473600
+	expiresTime := chromeEpoch.Add(time.Duration(expiresUTC) * time.Microsecond)
+	unixTime := expiresTime.Sub(unixEpoch).Seconds()
+
+	return unixTime
 }
 
-// ConvertSameSite converts SQLite SameSite value to string representation
-func ConvertSameSite(sameSite int64) string {
-	sameSiteMapping := map[int64]string{
+func convertSameSite(sameSite int) string {
+	sameSiteMap := map[int]string{
 		-1: "unspecified",
 		0:  "no_restriction",
 		1:  "lax",
@@ -53,273 +294,32 @@ func ConvertSameSite(sameSite int64) string {
 		3:  "none",
 	}
 
-	result, exists := sameSiteMapping[sameSite]
-	if !exists {
-		return "unspecified"
+	if val, ok := sameSiteMap[sameSite]; ok {
+		return val
 	}
-	return result
+	return "unspecified"
 }
 
-// GetEncryptionKey extracts and decrypts the encryption key from Chrome's Local State file
-func GetEncryptionKey() ([]byte, error) {
-	userProfile := os.Getenv("USERPROFILE")
-	if userProfile == "" {
-		return nil, fmt.Errorf("USERPROFILE environment variable not found")
+func min(a, b int) int {
+	if a < b {
+		return a
 	}
-
-	localStatePath := filepath.Join(userProfile, "AppData", "Local", "Google", "Chrome", "User Data", "Local State")
-
-	workingLocalState := "Local State"
-	if _, err := os.Stat(workingLocalState); os.IsNotExist(err) {
-		if err := CopyFile(localStatePath, workingLocalState); err != nil {
-			return nil, fmt.Errorf("failed to copy Local State: %v", err)
-		}
-	}
-
-	data, err := ioutil.ReadFile(workingLocalState)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read Local State: %v", err)
-	}
-
-	var localState struct {
-		OSCrypt struct {
-			EncryptedKey string `json:"encrypted_key"`
-		} `json:"os_crypt"`
-	}
-
-	if err := json.Unmarshal(data, &localState); err != nil {
-		return nil, fmt.Errorf("failed to parse Local State: %v", err)
-	}
-
-	// Decode the encryption key from Base64
-	encryptedKey, err := base64.StdEncoding.DecodeString(localState.OSCrypt.EncryptedKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode encrypted key: %v", err)
-	}
-
-	// Remove 'DPAPI' (5 bytes prefix)
-	if len(encryptedKey) < 5 {
-		return nil, fmt.Errorf("invalid encrypted key length")
-	}
-
-	encryptedKey = encryptedKey[5:]
-
-	// DPAPI decryption (Windows only)
-	return decryptDataDPAPI(encryptedKey)
+	return b
 }
 
-// DecryptDataDPAPI uses Windows DPAPI to decrypt data
-func decryptDataDPAPI(encryptedData []byte) ([]byte, error) {
-	// This requires Windows-specific DPAPI calls
-	// We'll use a simplified approach for now and note that this needs Windows API
-
-	// For demonstration, we'll return a placeholder
-	// In a real implementation, you'd use golang.org/x/sys/windows to call DPAPI functions
-	return nil, fmt.Errorf("DPAPI decryption requires Windows-specific implementation")
-}
-
-// DecryptData attempts to decrypt using AES-GCM first, then falls back to DPAPI
-func DecryptData(encryptedValue []byte, encryptionKey []byte) string {
-	if len(encryptedValue) == 0 {
-		return ""
-	}
-
-	// Try AES-GCM decryption first
-	decrypted, err := decryptDataAESGCM(encryptedValue, encryptionKey)
-	if err == nil {
-		return decrypted
-	}
-
-	// Try DPAPI decryption
-	decryptedBytes, err := decryptDataDPAPI(encryptedValue)
-	if err == nil {
-		return string(decryptedBytes)
-	}
-
-	return ""
-}
-
-// DecryptDataAESGCM decrypts data using AES-GCM
-func decryptDataAESGCM(encryptedValue []byte, key []byte) (string, error) {
-	if len(encryptedValue) < 15 {
-		return "", fmt.Errorf("encrypted data too short")
-	}
-
-	// Chrome stores AES-GCM encrypted data with prefix: 0x010000 + nonce + ciphertext + tag
-	// Extract nonce (12 bytes) from position 3 to 15
-	_ = encryptedValue[3:15]   // nonce - used in full implementation
-	_ = encryptedValue[15:]    // ciphertextWithTag - used in full implementation
-
-	// For AES-GCM, we need to implement the decryption
-	// This is a simplified version - full implementation would use crypto/aes and crypto/cipher
-	return "", fmt.Errorf("AES-GCM decryption requires full implementation")
-}
-
-func main() {
-	userProfile := os.Getenv("USERPROFILE")
-	if userProfile == "" {
-		fmt.Println("Error: USERPROFILE environment variable not found")
-		return
-	}
-
-	cookiesPath := filepath.Join(userProfile, "AppData", "Local", "Google", "Chrome", "User Data", "Default", "Network", "Cookies")
-	workingCookies := "Cookies"
-
-	// Copy the cookies file to avoid database locking
-	if _, err := os.Stat(workingCookies); os.IsNotExist(err) {
-		if err := CopyFile(cookiesPath, workingCookies); err != nil {
-			fmt.Printf("Error: Failed to copy Cookies file: %v\n", err)
-			return
-		}
-	}
-
-	// Open the SQLite database
-	db, err := sql.Open("sqlite3", workingCookies)
-	if err != nil {
-		fmt.Printf("Error: Failed to open database: %v\n", err)
-		return
-	}
-	defer db.Close()
-
-	// Query cookies from the database
-	rows, err := db.Query(`
-		SELECT host_key, name, value, encrypted_value, path, expires_utc, is_secure, is_httponly, has_expires,
-		       is_persistent, samesite FROM cookies
-	`)
-	if err != nil {
-		fmt.Printf("Error: Failed to query database: %v\n", err)
-		return
-	}
-	defer rows.Close()
-
-	encryptionKey, err := GetEncryptionKey()
-	if err != nil {
-		fmt.Printf("Warning: Failed to get encryption key: %v\n", err)
-		// Continue with empty key for already decrypted cookies
-		encryptionKey = nil
-	}
-
-	var cookiesList []Cookie
-	var cookieID int = 1
-
-	for rows.Next() {
-		var hostKey, name, value, encryptedValue, path sql.NullString
-		var expiresUTC, samesite sql.NullInt64
-		var isSecure, isHTTPOnly, hasExpires, isPersistent sql.NullBool
-
-		err := rows.Scan(
-			&hostKey, &name, &value, &encryptedValue, &path, &expiresUTC, &isSecure, &isHTTPOnly, &hasExpires,
-			&isPersistent, &samesite,
-		)
-		if err != nil {
-			fmt.Printf("Warning: Failed to scan row: %v\n", err)
-			continue
-		}
-
-		var decryptedValue string
-		if value.Valid && value.String != "" {
-			decryptedValue = value.String
-		} else if encryptedValue.Valid && encryptedValue.String != "" {
-			encryptedBytes := []byte(encryptedValue.String)
-			decryptedValue = DecryptData(encryptedBytes, encryptionKey)
-		} else {
-			decryptedValue = ""
-		}
-
-		// Convert types for JSON serialization
-		domain := ""
-		if hostKey.Valid {
-			domain = hostKey.String
-		}
-
-		cookieName := ""
-		if name.Valid {
-			cookieName = name.String
-		}
-
-		cookiePath := "/"
-		if path.Valid {
-			cookiePath = path.String
-		}
-
-		expirationDate := int64(0)
-		if expiresUTC.Valid {
-			expirationDate = ConvertToUnixTime(expiresUTC.Int64)
-		}
-
-		sameSite := "unspecified"
-		if samesite.Valid {
-			sameSite = ConvertSameSite(samesite.Int64)
-		}
-
-		httpOnly := false
-		if isHTTPOnly.Valid {
-			httpOnly = isHTTPOnly.Bool
-		}
-
-		secure := false
-		if isSecure.Valid {
-			secure = isSecure.Bool
-		}
-
-		session := true
-		if isPersistent.Valid {
-			session = !isPersistent.Bool
-		}
-
-		cookie := Cookie{
-			Domain:         domain,
-			ExpirationDate: expirationDate,
-			HostOnly:       false,
-			HTTPOnly:       httpOnly,
-			Name:           cookieName,
-			Path:           cookiePath,
-			SameSite:       sameSite,
-			Secure:         secure,
-			Session:        session,
-			StoreID:        "0",
-			Value:          decryptedValue,
-			ID:             cookieID,
-		}
-
-		cookiesList = append(cookiesList, cookie)
-		cookieID++
-	}
-
-	if err := rows.Err(); err != nil {
-		fmt.Printf("Error: Failed to iterate rows: %v\n", err)
-		return
-	}
-
-	// Write cookies to JSON file
-	jsonData, err := json.MarshalIndent(cookiesList, "", "    ")
-	if err != nil {
-		fmt.Printf("Error: Failed to marshal JSON: %v\n", err)
-		return
-	}
-
-	if err := ioutil.WriteFile("cookies.json", jsonData, 0644); err != nil {
-		fmt.Printf("Error: Failed to write cookies.json: %v\n", err)
-		return
-	}
-
-	fmt.Printf("Successfully exported %d cookies to cookies.json\n", len(cookiesList))
-}
-
-// CopyFile copies a file from src to dst
-func CopyFile(src, dst string) error {
-	source, err := os.Open(src)
+func copyFile(src, dst string) error {
+	sourceFile, err := os.Open(src)
 	if err != nil {
 		return err
 	}
-	defer source.Close()
+	defer sourceFile.Close()
 
-	destination, err := os.Create(dst)
+	destFile, err := os.Create(dst)
 	if err != nil {
 		return err
 	}
-	defer destination.Close()
+	defer destFile.Close()
 
-	_, err = io.Copy(destination, source)
+	_, err = io.Copy(destFile, sourceFile)
 	return err
 }
