@@ -1,5 +1,5 @@
 # export-chrome-cookies
 
-Export Google Chrome cookies in Windows using Python
+*In 2025, I rewrote this project using Go. The original Python version of this project can be found at `feature/python` branch.*
 
-Modified from [https://thepythoncode.com/article/extract-chrome-cookies-python]()
+Export Google Chrome cookies in Windows using Go
