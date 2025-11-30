@@ -6,7 +6,7 @@ Small, Go-based tool to prepare images and upload a Telegram sticker pack.
 
 *In 2025, I rewrote this project using Go. The original Python version of this project can be found at the `feature/python` branch.*
 
-**Note: I haven't tested the Go version. And Telegram Stickers now have app with convenient features, so maybe you don't need these scripts anymore.**
+**Note: This Go version isn't runnable, check Python version if you really want to use. Telegram Stickers now have app with convenient features, so maybe you don't need these scripts anymore.**
 
 ## Prerequisites
 - Go 1.24+ installed
