@@ -2,17 +2,24 @@
 
 Crawl data of "Anh trai nhân vật chính", a novel from https://ln.hako.vn/sang-tac/8476-kiep-nay-la-anh-trai-cua-nhan-vat-chinh
 
-# How to run
-1. Install requirements
-    ```
-    pip install -r requirements.txt
-    ```
-2. Run main.py to crawl data
-    ```
-    python main.py
-    ```
-    __Note__: You may get `HTTP Error 429: Too Many Requests`. Then you can try again later, and skip downloaded chapters, example skip 50 first chapters like:
-    ```
-    for chapter in chapters[50:]:
-    ```
-3. The data will be saved in `data` folder
+## The Original Python Version
+
+*In 2025, I rewrote this project using Go. The original Python version of this project can be found at the `feature/python` branch.*
+
+## Quick Start
+
+1. Install Go: https://go.dev/dl/
+2. `go mod init atnvc-crawler` (if needed)
+3. `go get github.com/PuerkitoBio/goquery`
+4. `go run main.go`
+
+Data saved in `./data/` as `<chapter-title>.txt`.
+
+## Rate Limits (HTTP 429)
+Skip crawled chapters and retry later. Uncomment line 104, replace 100 with number of chapters you want to skip.
+```go
+chapters = chapters.Slice(50, chapters.Length())
+```
+
+## Customize
+This version should work with other novels on Hako with some modifications. Feel free to try it!
