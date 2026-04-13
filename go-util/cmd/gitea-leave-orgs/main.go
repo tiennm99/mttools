@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"os"
 	"strings"
+
+	_ "github.com/tiennm99/go-util/internal/env"
 )
 
 // org represents a Gitea organization.
