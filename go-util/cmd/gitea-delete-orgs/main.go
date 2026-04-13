@@ -46,11 +46,11 @@ func main() {
 
 	for _, o := range orgs {
 		if keep[o.Username] {
-			fmt.Printf("  KEEP  %s\n", o.Username)
+			fmt.Printf("  KEEP   %s\n", o.Username)
 			continue
 		}
-		fmt.Printf("  LEAVE %s ... ", o.Username)
-		if err := leaveOrg(baseURL, token, o.Username); err != nil {
+		fmt.Printf("  DELETE %s ... ", o.Username)
+		if err := deleteOrg(baseURL, token, o.Username); err != nil {
 			fmt.Printf("FAILED: %v\n", err)
 		} else {
 			fmt.Println("OK")
@@ -85,37 +85,11 @@ func listOrgs(baseURL, token string) ([]org, error) {
 	return allOrgs, nil
 }
 
-// leaveOrg removes the authenticated user from the given organization.
-func leaveOrg(baseURL, token, orgName string) error {
-	url := fmt.Sprintf("%s/api/v1/orgs/%s/members/me", baseURL, orgName)
-
-	// First try the /members/me endpoint
+// deleteOrg deletes the organization entirely via DELETE /api/v1/orgs/{org}.
+func deleteOrg(baseURL, token, orgName string) error {
+	url := fmt.Sprintf("%s/api/v1/orgs/%s", baseURL, orgName)
 	_, err := doRequest(http.MethodDelete, url, token)
-	if err != nil {
-		// Fallback: get username and use explicit member removal
-		username, userErr := getUsername(baseURL, token)
-		if userErr != nil {
-			return fmt.Errorf("leave org: %w (also failed to get username: %v)", err, userErr)
-		}
-		url = fmt.Sprintf("%s/api/v1/orgs/%s/members/%s", baseURL, orgName, username)
-		_, err = doRequest(http.MethodDelete, url, token)
-	}
 	return err
-}
-
-// getUsername returns the authenticated user's username.
-func getUsername(baseURL, token string) (string, error) {
-	body, err := doRequest(http.MethodGet, baseURL+"/api/v1/user", token)
-	if err != nil {
-		return "", err
-	}
-	var user struct {
-		Login string `json:"login"`
-	}
-	if err := json.Unmarshal(body, &user); err != nil {
-		return "", err
-	}
-	return user.Login, nil
 }
 
 // doRequest executes an HTTP request with token auth and returns the response body.

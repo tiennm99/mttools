@@ -8,7 +8,7 @@ Each script lives in its own directory under `cmd/`, so multiple `main` packages
 
 ```
 cmd/
-  gitea-leave-orgs/   # Leave all Gitea orgs except a keep-list
+  gitea-delete-orgs/   # Delete all Gitea orgs except a keep-list
 ```
 
 ## Usage
@@ -17,11 +17,11 @@ cmd/
 # Run any script
 go run ./cmd/<script-name>
 
-# Example: leave Gitea orgs
+# Example: delete Gitea orgs
 export GITEA_URL=https://gitea.example.com
 export GITEA_TOKEN=your-token
 export GITEA_KEEP_ORGS=org1,org2
-go run ./cmd/gitea-leave-orgs
+go run ./cmd/gitea-delete-orgs
 ```
 
 ## Adding a new script
