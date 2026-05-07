@@ -1,5 +1,5 @@
 module image-resizer
 
-go 1.21
+go 1.25.0
 
-require golang.org/x/image v0.15.0
+require golang.org/x/image v0.38.0
