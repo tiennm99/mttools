@@ -2,6 +2,12 @@
 
 Some useful (or useless) scripts written in Go.
 
+## Scripts index
+
+| Script | Description | Key env vars |
+|--------|-------------|-------------|
+| `gitea-delete-orgs` | Delete all Gitea organisations except a keep-list | `GITEA_URL`, `GITEA_TOKEN`, `GITEA_KEEP_ORGS` |
+
 ## Structure
 
 Each script lives in its own directory under `cmd/`, so multiple `main` packages coexist without conflicts.
