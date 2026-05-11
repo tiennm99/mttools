@@ -1,7 +1,16 @@
 # export-chrome-cookies
 
-Export Google Chrome cookies in Windows using Python
+Python script to export Google Chrome cookies on Windows.
 
-Modified from [https://thepythoncode.com/article/extract-chrome-cookies-python]()
+## Quick start
 
-**Updated 2025**: This method is not work anymore.
+```bash
+pip install -r requirements.txt
+python main.py
+```
+
+> **Note:** Run on Windows with Chrome closed. Exports cookies to a local file.
+
+## License
+
+Apache-2.0 — see [LICENSE](LICENSE).
