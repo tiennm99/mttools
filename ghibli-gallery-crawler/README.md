@@ -13,7 +13,15 @@ npm install
 node download_images.js
 ```
 
-Edit the script to set the source URLs and target directory.
+Edit the script to set the source URLs and target directory before running.
+
+## Input format
+
+Both variants read a hardcoded list of image URLs defined at the top of each script. Edit the URL array in `download_images.py` or `download_images.js` to point at your images and set the output directory path.
+
+## Output behavior
+
+Images are saved into the configured output directory, named by their original filename from the URL. Existing files are overwritten. The Python variant uses `requests`; the JS variant uses `axios` + `fs.createWriteStream`.
 
 ## License
 
