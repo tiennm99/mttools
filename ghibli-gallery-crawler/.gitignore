@@ -1,0 +1,11 @@
+# Build output
+/ghibli-gallery-crawler
+/ghibli-gallery-crawler.exe
+
+# Downloaded images
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.webp
+*.svg
