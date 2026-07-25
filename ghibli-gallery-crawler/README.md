@@ -1,6 +1,6 @@
-# download-images
+# ghibli-gallery-crawler
 
-Simple image downloader (from 2020-08-31). Both Python and JavaScript variants included.
+Crawler for the Ghibli film gallery images (from 2020-08-31). Both Python and JavaScript variants included.
 
 ## Usage
 
