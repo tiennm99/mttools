@@ -1,0 +1,7 @@
+# Build output
+/monkeyd-crawler
+/monkeyd-crawler.exe
+
+# Cached pages and exported books
+/.cache/
+*.pdf
