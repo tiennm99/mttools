@@ -20,7 +20,7 @@ import (
 // flags or config can advertise the same values instead of restating them.
 const (
 	DefaultPage        = "phone"
-	DefaultFontSize    = 12.0
+	DefaultFontSize    = 10.0
 	DefaultLineSpacing = 1.55
 	DefaultMargin      = 6.0
 	DefaultWorkers     = 4
