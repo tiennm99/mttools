@@ -104,9 +104,33 @@ chapter ordering, and the numbering gap. No network access required.
 
 ```
 cmd/monkeyd-crawler/    CLI
-internal/monkeyd/       fetching, HTML/CSS parsing, crawl orchestration
-internal/pdfout/        PDF rendering and font discovery
+export/                 URL -> PDF in one call; shared by the CLI and importers
+monkeyd/                fetching, HTML/CSS parsing, crawl orchestration
+pdfout/                 PDF rendering and font discovery
 ```
+
+## Use as a library
+
+The packages are importable, so another Go program can produce the same PDF
+without shelling out to the binary. `export.Export` is the whole pipeline —
+chapter list, fetch, font discovery, render:
+
+```go
+result, err := export.Export(ctx, export.Request{
+	NovelURL: "https://monkeydd.com/tro-lai-nam-thang-cu.html",
+	OutDir:   tmpDir,
+})
+```
+
+Only `NovelURL` is required; each zero-valued field falls back to the same
+default as the matching CLI flag. Because zero means "unset", ask for *no*
+cache or *no* request delay with the `NoCache` and `NoDelay` fields rather than
+by zeroing `CacheDir` or `Delay`. Pass a `Log` function to receive the progress
+messages the CLI prints to stderr.
+
+Callers running in a container should note that `pdfout.FindFont` searches
+system font paths: a minimal image with no fonts installed needs either a font
+present or an explicit `FontFile`.
 
 ## Scope
 
