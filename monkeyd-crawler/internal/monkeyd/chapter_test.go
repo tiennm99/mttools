@@ -108,6 +108,77 @@ func TestParseChapterDropsRepeatedTitle(t *testing.T) {
 	}
 }
 
+// gatedChapterFixture mirrors how most chapters are served: a visible sponsor
+// block (div.actcl) stands in for the body, while the real text sits in a
+// sibling div.actac hidden with display:none and revealed by the site's
+// JavaScript. A source watermark and prev/next navigation bracket the prose.
+const gatedChapterFixture = `<!DOCTYPE html><html><head>
+<style>.t-aaa:before { content: "v\1ecb"; }</style></head><body>
+<div class="content-container" id="chapter-content-render">
+  <div class="actcl">
+    <h4 class="text-center text-primary">Moi Quy doc gia CLICK vao lien ket</h4>
+    <p class="text-center">mo ung dung Shopee, sau do quay tro lai de doc!</p>
+    <a class="btn btn-primary px-3" href="https://s.shopee.vn/xxxx">
+      <img src="x.jpg"><span class="text-uppercase text-danger">CLICK</span></a>
+    <h4 class="text-center text-primary">MonkeyD va doi ngu Editor xin chan thanh cam on!</h4>
+  </div>
+  <div class="actac" style=" display:none; ">
+    <p>Doan van dau tien co <span class="t-aaa"></span> tri.</p>
+    <p>&nbsp;</p>
+    <p class="signature">[Truyen duoc dang tai duy nhat tai MonkeyDD.com - https://monkeydd.com/n/10.html.]</p>
+    <p>Doan van cuoi cung.</p>
+  </div>
+  <div class="my-4"><div class="d-flex justify-content-center">
+    <a class="btn btn-primary px-3 me-2" href="/n/9.html"><i class="bx bx-chevron-left"></i>Chương trước</a>
+    <a class="btn btn-primary px-3" href="/n/11.html">Chương sau<i class="bx bx-chevron-right"></i></a>
+  </div></div>
+</div></body></html>`
+
+// The gated body is the one thing that must survive: it is hidden with
+// display:none, so any rule that drops hidden or "act*" containers silently
+// discards the entire chapter.
+func TestParseChapterKeepsGatedBody(t *testing.T) {
+	ch, err := ParseChapter([]byte(gatedChapterFixture), ChapterRef{Label: "10", URL: "http://x/10.html"})
+	if err != nil {
+		t.Fatalf("ParseChapter: %v", err)
+	}
+
+	want := []string{
+		"Doan van dau tien co vị tri.",
+		"Doan van cuoi cung.",
+	}
+	if len(ch.Paragraphs) != len(want) {
+		t.Fatalf("got %d paragraphs %q, want %d", len(ch.Paragraphs), ch.Paragraphs, len(want))
+	}
+	for i, w := range want {
+		if ch.Paragraphs[i] != w {
+			t.Errorf("paragraph %d = %q, want %q", i, ch.Paragraphs[i], w)
+		}
+	}
+}
+
+// Everything the site injects around the prose must be gone.
+func TestParseChapterDropsInjectedBlocks(t *testing.T) {
+	ch, err := ParseChapter([]byte(gatedChapterFixture), ChapterRef{Label: "10", URL: "http://x/10.html"})
+	if err != nil {
+		t.Fatalf("ParseChapter: %v", err)
+	}
+	body := strings.Join(ch.Paragraphs, "\n")
+
+	for _, junk := range []string{
+		"Shopee",       // sponsor copy
+		"CLICK",        // sponsor call to action
+		"cam on",       // sponsor sign-off
+		"MonkeyDD.com", // source watermark
+		"Chương trước", // navigation
+		"Chương sau",   // navigation
+	} {
+		if strings.Contains(body, junk) {
+			t.Errorf("injected text %q survived extraction in %q", junk, body)
+		}
+	}
+}
+
 func TestParseChapterMissingContainer(t *testing.T) {
 	if _, err := ParseChapter([]byte(`<html><body><p>hi</p></body></html>`),
 		ChapterRef{URL: "http://x/1.html"}); err == nil {
