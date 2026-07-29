@@ -8,14 +8,16 @@ import (
 
 func testOptions(t *testing.T) Options {
 	t.Helper()
-	font, err := FindFont()
+	// LoadFont("") cannot fail — it ends at the bundled font — so unlike the
+	// old FindFont call this never skips for want of a system font.
+	font, err := LoadFont("")
 	if err != nil {
-		t.Skipf("no system font available: %v", err)
+		t.Fatalf("LoadFont: %v", err)
 	}
 	return Options{
 		Page:        Presets["phone"],
 		Margin:      6,
-		FontFile:    font,
+		Font:        font,
 		FontSize:    12,
 		LineSpacing: 1.55,
 		Title:       "TRỞ LẠI NĂM THÁNG CŨ",

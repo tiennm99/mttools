@@ -75,7 +75,7 @@ type Result struct {
 	SourceURL string
 	Chapters  int
 	Words     int
-	FontFile  string
+	FontName  string // font path, or pdfout.BundledFontName
 	Page      pdfout.PageSize
 }
 
@@ -115,11 +115,11 @@ func Export(ctx context.Context, req Request) (*Result, error) {
 		return nil, err
 	}
 
-	fontFile := req.FontFile
-	if fontFile == "" {
-		if fontFile, err = pdfout.FindFont(); err != nil {
-			return nil, err
-		}
+	// Falls back to the bundled font, so a host with no fonts installed still
+	// renders; only an explicitly requested font can fail here.
+	font, err := pdfout.LoadFont(req.FontFile)
+	if err != nil {
+		return nil, err
 	}
 
 	outPath := req.OutPath
@@ -131,7 +131,7 @@ func Export(ctx context.Context, req Request) (*Result, error) {
 	opts := pdfout.Options{
 		Page:        page,
 		Margin:      req.Margin,
-		FontFile:    fontFile,
+		Font:        font,
 		FontSize:    req.FontSize,
 		LineSpacing: req.LineSpacing,
 		Title:       novel.Title,
@@ -147,7 +147,7 @@ func Export(ctx context.Context, req Request) (*Result, error) {
 		SourceURL: novel.URL,
 		Chapters:  len(chapters),
 		Words:     monkeyd.TotalWords(chapters),
-		FontFile:  fontFile,
+		FontName:  font.Name,
 		Page:      page,
 	}, nil
 }
