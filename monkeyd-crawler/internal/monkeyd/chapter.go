@@ -48,11 +48,45 @@ var blockTags = map[string]bool{
 	"li": true, "ul": true, "ol": true, "tr": true,
 }
 
-// skipTags never contribute text: scripts, styles and the ad/report widgets
-// the site injects inside the content container.
+// skipTags never contribute prose.
+//
+// Anchors are included because inside a chapter body they are always site
+// chrome: the prev/next chapter navigation and the sponsor call-to-action are
+// both links, while novel prose never needs one. Inline emphasis tags (b, i,
+// em) are deliberately absent so italics in the prose survive; the site's icons
+// use <i> but carry no text.
 var skipTags = map[string]bool{
 	"script": true, "style": true, "noscript": true, "iframe": true,
 	"ins": true, "form": true, "select": true, "button": true, "textarea": true,
+	"a": true, "img": true, "svg": true,
+}
+
+// junkClasses marks containers the site injects into the chapter body. Their
+// whole subtree is dropped.
+//
+// These are matched on class rather than position because the blocks move: the
+// sponsor block opens the body on most chapters but is absent on others, and
+// the watermark is planted at a different paragraph in every chapter. Only
+// site-specific class names are listed; generic Bootstrap utilities such as
+// "my-4" or "text-center" are not, since prose could legitimately carry them.
+//
+// Note the sibling class "actac" is NOT junk: it wraps the real chapter text and
+// carries style="display:none", because the site gates the body behind a click
+// on the sponsor link and reveals it with JavaScript. Skipping hidden elements,
+// or skipping "act*" as a family, would therefore discard the whole chapter.
+var junkClasses = map[string]bool{
+	"actcl":     true, // sponsor block shown in place of the gated chapter body
+	"signature": true, // "[Truyện được đăng tải duy nhất tại ...]" source watermark
+}
+
+// hasJunkClass reports whether a node is an injected non-prose container.
+func hasJunkClass(n *html.Node) bool {
+	for _, tok := range strings.Fields(attr(n, "class")) {
+		if junkClasses[tok] {
+			return true
+		}
+	}
+	return false
 }
 
 // ParseChapter extracts a chapter's paragraphs, restoring the words the site
@@ -93,7 +127,7 @@ func extractParagraphs(content *html.Node, words map[string]string) []string {
 			b.WriteString(n.Data)
 			return
 		case html.ElementNode:
-			if skipTags[n.Data] {
+			if skipTags[n.Data] || hasJunkClass(n) {
 				return
 			}
 			// These elements are empty in the markup; the CSS word replaces them.
