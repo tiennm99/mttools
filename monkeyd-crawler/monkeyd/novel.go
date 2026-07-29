@@ -17,9 +17,13 @@ type ChapterRef struct {
 
 // Novel is a novel's landing page: its title and its chapters in reading order.
 type Novel struct {
-	Title    string
-	Slug     string
-	URL      string
+	Title string
+	Slug  string
+	URL   string
+
+	// Tags are the novel's own genres, as labelled on the site, in the order
+	// they appear. Empty when the page lists none.
+	Tags     []string
 	Chapters []ChapterRef
 }
 
@@ -43,6 +47,7 @@ func ParseNovelPage(page []byte, pageURL string) (*Novel, error) {
 		Title:    novelTitle(doc),
 		Slug:     slugFromNovelURL(base),
 		URL:      pageURL,
+		Tags:     tagsFromInfo(doc),
 		Chapters: chapterRefsFromList(doc, base),
 	}
 	if novel.Title == "" {
@@ -62,6 +67,35 @@ func novelTitle(doc *html.Node) string {
 		}
 	}
 	return nodeText(elementByTag(doc, "title"))
+}
+
+// tagsFromInfo reads the novel's own genres out of the info block.
+//
+// The anchors are matched on the schema.org itemprop="genre" microdata rather
+// than on their href. The page also carries a site-wide genre menu linking every
+// category — 69 distinct ones against this novel's 6 on a sampled page — so
+// matching the /the-loai/ URL shape would pull in the whole navigation.
+func tagsFromInfo(doc *html.Node) []string {
+	links := findAllNodes(doc, func(n *html.Node) bool {
+		return n.Type == html.ElementNode && n.Data == "a" && attr(n, "itemprop") == "genre"
+	})
+
+	var tags []string
+	seen := make(map[string]bool, len(links))
+	for _, link := range links {
+		// The label appears both as the link text and as its title attribute;
+		// prefer the text and fall back to the attribute.
+		name := nodeText(link)
+		if name == "" {
+			name = collapseSpaces(attr(link, "title"))
+		}
+		if name == "" || seen[name] {
+			continue
+		}
+		seen[name] = true
+		tags = append(tags, name)
+	}
+	return tags
 }
 
 // slugFromNovelURL turns https://host/tro-lai-nam-thang-cu.html into

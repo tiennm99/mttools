@@ -44,6 +44,57 @@ func TestParseNovelPageOrdersChaptersForReading(t *testing.T) {
 	}
 }
 
+// tagsFixture mirrors the real page: the novel's own genres carry
+// itemprop="genre", while a site-wide menu links every category without it. A
+// parser matching on the /the-loai/ href shape would swallow the whole menu.
+const tagsFixture = `<html><head><title>TEN TRUYEN</title></head><body>
+<h1>TEN TRUYEN</h1>
+<dl class="row">
+  <dt class="col-sm-3">Thể loại</dt>
+  <dd class="col-sm-9">
+    <a class='cate-item' itemprop='genre' title='Trọng Sinh' href='https://monkeydd.com/the-loai/trong-sinh.html'>Trọng Sinh</a>
+    <a class='cate-item' itemprop='genre' title='Cổ Đại' href='https://monkeydd.com/the-loai/co-dai.html'>Cổ  Đại</a>
+    <a class='cate-item' itemprop='genre' title='Gia Đình' href='https://monkeydd.com/the-loai/gia-dinh.html'></a>
+    <a class='cate-item' itemprop='genre' title='Cổ Đại' href='https://monkeydd.com/the-loai/co-dai.html'>Cổ Đại</a>
+  </dd>
+</dl>
+<nav class="site-menu">
+  <a href='https://monkeydd.com/the-loai/dam-my.html'>Đam Mỹ</a>
+  <a href='https://monkeydd.com/the-loai/bach-hop.html'>Bách Hợp</a>
+</nav>
+<div class="list-chapters">
+  <div class="item"><div class="episode-title"><a href="/n/1.html">1</a></div></div>
+</div></body></html>`
+
+func TestParseNovelPageReadsTags(t *testing.T) {
+	novel, err := ParseNovelPage([]byte(tagsFixture), "https://monkeydd.com/n.html")
+	if err != nil {
+		t.Fatalf("ParseNovelPage: %v", err)
+	}
+
+	// "Cổ  Đại" has its inner whitespace collapsed, the empty anchor falls back
+	// to its title attribute, and the repeated genre appears once.
+	want := []string{"Trọng Sinh", "Cổ Đại", "Gia Đình"}
+	if len(novel.Tags) != len(want) {
+		t.Fatalf("Tags = %q, want %q", novel.Tags, want)
+	}
+	for i := range want {
+		if novel.Tags[i] != want[i] {
+			t.Errorf("Tags[%d] = %q, want %q", i, novel.Tags[i], want[i])
+		}
+	}
+}
+
+func TestParseNovelPageWithoutTags(t *testing.T) {
+	novel, err := ParseNovelPage([]byte(novelFixture), "https://monkeydd.com/n.html")
+	if err != nil {
+		t.Fatalf("ParseNovelPage: %v", err)
+	}
+	if len(novel.Tags) != 0 {
+		t.Errorf("Tags = %q, want none", novel.Tags)
+	}
+}
+
 func TestParseNovelPageNoChapters(t *testing.T) {
 	if _, err := ParseNovelPage([]byte(`<html><title>x</title><body></body></html>`),
 		"https://monkeydd.com/n.html"); err == nil {
