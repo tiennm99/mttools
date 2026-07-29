@@ -77,6 +77,21 @@ func (c *Crawler) Novel(ctx context.Context, novelURL string) (*Novel, error) {
 	return novel, nil
 }
 
+// NovelInfo fetches only the landing page and returns what it carries: title,
+// slug, tags, and the chapter list as that page shows it.
+//
+// Unlike Novel it does not also fetch a chapter page to cross-check the chapter
+// list, so it costs a single request. Callers that only want metadata should
+// prefer it; callers about to export every chapter want Novel, whose
+// reconciliation guards against a silently truncated list.
+func (c *Crawler) NovelInfo(ctx context.Context, novelURL string) (*Novel, error) {
+	page, err := c.page(ctx, novelURL)
+	if err != nil {
+		return nil, err
+	}
+	return ParseNovelPage(page, novelURL)
+}
+
 // Chapters fetches every chapter concurrently and returns them in reading
 // order. Any chapter that cannot be fetched or parsed fails the whole run
 // rather than yielding a book with a hole in it.
