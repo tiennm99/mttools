@@ -53,7 +53,7 @@ type Chapter struct {
 type Options struct {
 	Page        PageSize
 	Margin      float64 // mm
-	FontFile    string
+	Font        Font    // resolve with LoadFont
 	FontSize    float64 // pt
 	LineSpacing float64 // multiple of font size
 	Title       string
@@ -73,9 +73,12 @@ func Write(path string, opts Options, chapters []Chapter) error {
 	pdf.SetMargins(opts.Margin, opts.Margin, opts.Margin)
 	pdf.SetAutoPageBreak(true, opts.Margin+footerReserve)
 
-	// AddUTF8Font embeds a subset of the TrueType file, which is what makes the
-	// Vietnamese diacritics render instead of falling back to "?".
-	pdf.AddUTF8Font(bodyFont, "", opts.FontFile)
+	// Embeds a subset of the TrueType data, which is what makes the Vietnamese
+	// diacritics render instead of falling back to "?". The bytes are passed
+	// directly rather than by path: the path-taking variant joins the name onto
+	// fpdf's own font directory (default "."), which mangles an absolute path
+	// into a working-directory-relative one.
+	pdf.AddUTF8FontFromBytes(bodyFont, "", opts.Font.Data)
 	pdf.SetFont(bodyFont, "", opts.FontSize)
 	pdf.SetTitle(opts.Title, true)
 

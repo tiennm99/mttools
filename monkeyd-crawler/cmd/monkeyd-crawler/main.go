@@ -44,7 +44,7 @@ func run() error {
 
 	fmt.Fprintf(os.Stderr, "\n%s\n", result.Summary())
 	fmt.Fprintf(os.Stderr, "font: %s at %.0fpt on %s page (%.0f x %.0f mm)\n",
-		filepath.Base(result.FontFile), req.FontSize, result.Page.Name, result.Page.W, result.Page.H)
+		filepath.Base(result.FontName), req.FontSize, result.Page.Name, result.Page.W, result.Page.H)
 	fmt.Println(result.Path)
 	return nil
 }

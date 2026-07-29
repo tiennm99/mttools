@@ -40,7 +40,7 @@ The PDF is named after the novel unless you pass `-out`.
 | `-font-size` | `12` | Body font size in points |
 | `-line-spacing` | `1.55` | Line height as a multiple of font size |
 | `-margin` | `6` | Page margin in mm |
-| `-font` | auto | Path to a `.ttf`; defaults to a system font with Vietnamese coverage |
+| `-font` | auto | Path to a `.ttf`; defaults to a system font, else the bundled one |
 | `-workers` | `4` | Concurrent chapter fetches |
 | `-delay` | `400ms` | Minimum delay between requests |
 | `-retries` | `3` | Retries per request |
@@ -106,14 +106,14 @@ chapter ordering, and the numbering gap. No network access required.
 cmd/monkeyd-crawler/    CLI
 export/                 URL -> PDF in one call; shared by the CLI and importers
 monkeyd/                fetching, HTML/CSS parsing, crawl orchestration
-pdfout/                 PDF rendering and font discovery
+pdfout/                 PDF rendering, font resolution, bundled fallback font
 ```
 
 ## Use as a library
 
 The packages are importable, so another Go program can produce the same PDF
 without shelling out to the binary. `export.Export` is the whole pipeline —
-chapter list, fetch, font discovery, render:
+chapter list, fetch, font resolution, render:
 
 ```go
 result, err := export.Export(ctx, export.Request{
@@ -128,9 +128,27 @@ cache or *no* request delay with the `NoCache` and `NoDelay` fields rather than
 by zeroing `CacheDir` or `Delay`. Pass a `Log` function to receive the progress
 messages the CLI prints to stderr.
 
-Callers running in a container should note that `pdfout.FindFont` searches
-system font paths: a minimal image with no fonts installed needs either a font
-present or an explicit `FontFile`.
+## Fonts
+
+The PDF embeds a TrueType font, and Vietnamese needs one that covers the Latin
+Extended Additional block — a basic-Latin font silently drops the diacritics.
+The font is resolved in this order:
+
+1. the path given to `-font` / `Request.FontFile`, which is an error if it
+   cannot be read — a named font is not silently substituted;
+2. a system font known to cover Vietnamese (see `pdfout.FindFont`);
+3. the bundled DejaVu Sans, compiled into the binary.
+
+Step 3 means rendering never depends on the host having fonts installed, which
+is what a minimal container usually looks like. See
+[`pdfout/fonts/NOTICE.md`](pdfout/fonts/NOTICE.md) for the bundled font's
+provenance and licensing.
+
+Font data is handed to the PDF writer as bytes, not as a path. `fpdf`'s
+path-taking `AddUTF8Font` joins the name onto its own font directory, which it
+defaults to `"."`; an absolute path is thereby rewritten into a
+working-directory-relative one and fails wherever the process does not run from
+the filesystem root.
 
 ## Scope
 
