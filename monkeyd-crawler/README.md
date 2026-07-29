@@ -37,7 +37,7 @@ The PDF is named after the novel unless you pass `-out`.
 | `-url` | *required* | Novel landing page URL |
 | `-out` | novel title | Output PDF path |
 | `-page` | `phone` | Page size: `phone`, `a5`, `a4` |
-| `-font-size` | `12` | Body font size in points |
+| `-font-size` | `10` | Body font size in points |
 | `-line-spacing` | `1.55` | Line height as a multiple of font size |
 | `-margin` | `6` | Page margin in mm |
 | `-font` | auto | Path to a `.ttf`; defaults to a system font, else the bundled one |
@@ -52,8 +52,9 @@ The PDF is named after the novel unless you pass `-out`.
 Phone readability is governed by page *shape* more than by font size. A PDF viewer scales a
 whole page to fit the screen, so a large font on an A4 page still ends up small: the page is
 about three times wider than a phone screen and gets shrunk to match. The default page is cut
-to a 9:16 ratio so it fills the screen at 100% zoom, where 12 pt renders at a comfortable
-size with roughly 35–40 characters per line.
+to a 9:16 ratio so it fills the screen at 100% zoom, where the default 10 pt renders at a
+comfortable size with roughly 43 characters per line and 26 lines per page. Raising it to
+12 pt gives about 36 characters per line; use `-font-size` to suit your screen and eyes.
 
 Use `-page a5` or `-page a4` for a tablet or for printing.
 
