@@ -1,0 +1,9 @@
+# Dependencies (package-lock.json stays tracked)
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Build output
+*.exe
