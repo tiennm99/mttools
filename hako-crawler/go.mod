@@ -1,12 +1,14 @@
-module github.com/tiennm99/atnvc-crawler
+module github.com/tiennm99/hako-crawler
 
-go 1.24.0
+go 1.25.0
 
-toolchain go1.24.10
-
-require github.com/PuerkitoBio/goquery v1.11.0
+require (
+	github.com/PuerkitoBio/goquery v1.12.0
+	github.com/go-pdf/fpdf v0.9.0
+	golang.org/x/sync v0.22.0
+)
 
 require (
 	github.com/andybalholm/cascadia v1.3.3 // indirect
-	golang.org/x/net v0.47.0 // indirect
+	golang.org/x/net v0.52.0 // indirect
 )
