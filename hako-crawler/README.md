@@ -5,7 +5,7 @@ it as a single PDF sized for reading on a phone.
 
 ## Install
 
-Requires Go 1.24+.
+Requires Go 1.25+.
 
 ```sh
 go build ./cmd/hako-crawler
