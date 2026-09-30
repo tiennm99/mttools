@@ -1,6 +1,31 @@
 # circular-dependency-checker
-Detects cyclic dependencies in Godot Engine projects, which cause "bad address index" errors. This tool analyzes `.gd` script files to identify circular dependencies between classes.
 
-*In 2025, I rewrote this project using Go. The Python version of this project can be found at [feature/python](https://github.com/tiennm99/circular-dependency-checker/tree/feature/python) branch.*
+Detects cyclic dependencies in Godot projects that cause "bad address index" errors.
 
-**Note: This Go version hasn't been tested yet. I don't work with GD projects anymore.**
+## Quick start
+
+```bash
+python circular_dependency_checker.py <path-to-godot-project>
+```
+
+## Why this exists
+
+In GDScript, `preload()` calls at the top of a script are resolved at parse time. If script A preloads script B and B preloads A (directly or transitively), Godot raises a cryptic **"bad address index"** error at runtime — not a clear circular-import message. This tool walks all `.gd` files, builds a directed dependency graph from `class_name`, `extends`, and type annotations, then reports any cycles before you hit that error in the engine.
+
+## Sample output
+
+```
+Checking /path/to/my-godot-project...
+Cycle detected: PlayerState -> StateMachine -> PlayerState
+Cycle detected: Enemy -> EnemyAI -> BaseAI -> Enemy
+2 cycle(s) found. Fix preload order or use load() with lazy initialization.
+```
+
+If no cycles are found:
+```
+No circular dependencies detected.
+```
+
+## License
+
+Apache-2.0 — see [LICENSE](LICENSE).
