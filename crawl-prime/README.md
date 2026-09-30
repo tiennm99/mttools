@@ -2,7 +2,7 @@
 
 Crawl all prime numbers available on http://compoasso.free.fr/primelistweb/page/prime/liste_online_en.php
 
-*In 2025, I rewrote this project using Go. The Python version of this project can be found at [feature/python](https://github.com/tiennm99/crawl-prime/tree/feature/python) branch.*
+*In 2025, I rewrote this project using Go. The earlier Python version is kept in history: [browse it at its last commit](https://github.com/tiennm99/mttools/tree/d21a53d4dd6353996ca1a69230e83f73b76b8b7e/crawl-prime).*
 
 ## Requirements
 
@@ -14,8 +14,8 @@ Crawl all prime numbers available on http://compoasso.free.fr/primelistweb/page/
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/tiennm99/crawl-prime.git
-   cd crawl-prime
+   git clone https://github.com/tiennm99/mttools.git
+   cd mttools/crawl-prime
    ```
 
 2. Install Go (if not already installed):

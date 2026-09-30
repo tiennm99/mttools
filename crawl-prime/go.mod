@@ -1,4 +1,4 @@
-module github.com/tiennm99/crawl-prime
+module github.com/tiennm99/mttools/crawl-prime
 
 go 1.25.0
 
