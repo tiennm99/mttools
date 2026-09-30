@@ -50,7 +50,7 @@ Aspect ratio is always preserved — the scale percentage applies uniformly to b
 
 ## Related
 
-- [webp-converter](https://github.com/tiennm99/webp-converter) — converts WebP images to PNG/JPG (same domain, different operation).
+- [webp-converter](../webp-converter/) — converts WebP images to PNG/JPG (same domain, different operation).
 
 ## License
 

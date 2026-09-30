@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	_ "github.com/tiennm99/go-util/internal/env"
+	_ "github.com/tiennm99/mttools/go-util/internal/env"
 )
 
 // org represents a Gitea organization.

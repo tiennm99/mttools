@@ -1,5 +1,5 @@
 // Package env loads .env files on init so all cmd/ scripts get env vars automatically.
-// Usage: import _ "github.com/tiennm99/go-util/internal/env"
+// Usage: import _ "github.com/tiennm99/mttools/go-util/internal/env"
 package env
 
 import (
