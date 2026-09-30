@@ -1,4 +1,4 @@
-module github.com/tiennm99/go-util
+module github.com/tiennm99/mttools/go-util
 
 go 1.26.1
 

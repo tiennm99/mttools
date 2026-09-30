@@ -1,4 +1,4 @@
-module github.com/tiennm99/webp-converter
+module github.com/tiennm99/mttools/webp-converter
 
 go 1.25.0
 

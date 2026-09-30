@@ -40,7 +40,7 @@ curl -X POST http://localhost:8080/process \
 
 ## Related
 
-- [image-resizer](https://github.com/tiennm99/image-resizer) — batch-resize images by percentage (same domain, different operation).
+- [image-resizer](../image-resizer/) — batch-resize images by percentage (same domain, different operation).
 
 ## License
 
