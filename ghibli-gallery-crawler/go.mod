@@ -1,4 +1,4 @@
-module github.com/tiennm99/ghibli-gallery-crawler
+module github.com/tiennm99/mttools/ghibli-gallery-crawler
 
 go 1.26.4
 

@@ -5,8 +5,8 @@ Update CloudFlare DNS records with dynamic IP when your IP is behind router's IP
 ## How to use this script
 
 ```bash
-git clone https://github.com/tiennm99/update-dns
-cd update-dns
+git clone https://github.com/tiennm99/mttools
+cd mttools/update-dns
 nano main.sh
 # Edit value in the script
 ./main.sh
