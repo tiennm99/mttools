@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tiennm99/hako-crawler/hako"
-	"github.com/tiennm99/hako-crawler/pdfout"
+	"github.com/tiennm99/mttools/hako-crawler/hako"
+	"github.com/tiennm99/mttools/hako-crawler/pdfout"
 )
 
 // Defaults for every tunable field of Request. Exported so a caller's own flags

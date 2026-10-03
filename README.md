@@ -17,6 +17,8 @@ repository, merged here with full history.
 | [`crawl-prime/`](./crawl-prime/) | Crawls large prime numbers from compoasso.free.fr | Go |
 | [`fbcount/`](./fbcount/) | Counts messages per person in a Facebook data export | Node.js, Python |
 | [`bulk-telegram-sticker/`](./bulk-telegram-sticker/) | Creates Telegram stickers in bulk from images | Python |
+| [`hako-crawler/`](./hako-crawler/) | Exports an ln.hako.vn light novel to a phone-readable PDF — CLI and importable library | Go |
+| [`monkeyd-crawler/`](./monkeyd-crawler/) | Exports a monkeydd novel to a phone-sized PDF | Go |
 
-Unmerged Go-rewrite drafts live on `feature/export-chrome-cookies-go`,
-`feature/circular-dependency-checker-go`, and `feature/bulk-telegram-sticker-go`.
+Go-rewrite drafts of `export-chrome-cookies`, `circular-dependency-checker`, and
+`bulk-telegram-sticker` were merged and then reverted; they remain in history.

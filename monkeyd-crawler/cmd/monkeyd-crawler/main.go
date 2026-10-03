@@ -12,8 +12,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/tiennm99/monkeyd-crawler/export"
-	"github.com/tiennm99/monkeyd-crawler/pdfout"
+	"github.com/tiennm99/mttools/monkeyd-crawler/export"
+	"github.com/tiennm99/mttools/monkeyd-crawler/pdfout"
 )
 
 func main() {
