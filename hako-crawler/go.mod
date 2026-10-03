@@ -1,4 +1,4 @@
-module github.com/tiennm99/hako-crawler
+module github.com/tiennm99/mttools/hako-crawler
 
 go 1.25.0
 

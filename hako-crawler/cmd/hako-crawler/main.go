@@ -12,8 +12,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/tiennm99/hako-crawler/export"
-	"github.com/tiennm99/hako-crawler/pdfout"
+	"github.com/tiennm99/mttools/hako-crawler/export"
+	"github.com/tiennm99/mttools/hako-crawler/pdfout"
 )
 
 // exampleURL is the novel this project was originally written for; it stands in

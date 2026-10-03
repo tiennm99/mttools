@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tiennm99/monkeyd-crawler/monkeyd"
-	"github.com/tiennm99/monkeyd-crawler/pdfout"
+	"github.com/tiennm99/mttools/monkeyd-crawler/monkeyd"
+	"github.com/tiennm99/mttools/monkeyd-crawler/pdfout"
 )
 
 // Defaults for every tunable field of Request. Exported so a caller's own

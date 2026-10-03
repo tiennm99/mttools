@@ -1,4 +1,4 @@
-module github.com/tiennm99/monkeyd-crawler
+module github.com/tiennm99/mttools/monkeyd-crawler
 
 go 1.26.4
 
